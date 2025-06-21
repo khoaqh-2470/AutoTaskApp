@@ -44,67 +44,112 @@ class AutoAccessibilityService : AccessibilityService() {
     }
 
     fun runningTask() {
-        waitForNodeAndClick(
-            "com.dapp.metablox:id/rtv_event",
-            timeout = 20000
-        ) // Đợi app mở bấm nút Check-In
+        waitForNodeAndClick("Check-In", timeout = 20000, isId = false)
+//        waitForNodeAndClick(
+//            "com.dapp.metablox:id/rtv_event",
+//            timeout = 20000
+//        )
         Thread.sleep(1000)
         if (waitForNodeExist("com.dapp.metablox:id/rtv_check_in")) { // Nếu có nút Check-In 2
             Log.d("qqq", "runningTask: if")
             waitForNodeAndClick("com.dapp.metablox:id/rtv_check_in")
             waitForNodeAndClick("com.dapp.metablox:id/rtv_sign")
+            Thread.sleep(3000)
             waitForNodeAndClick("com.dapp.metablox:id/rtv_got_it", timeout = 20000)
+            Thread.sleep(3000)
             waitForNodeAndClick("com.dapp.metablox:id/img_point")
+            Thread.sleep(3000)
             waitForNodeAndClick("com.dapp.metablox:id/rtv_done")
+            Thread.sleep(3000)
             waitForNodeAndClick("com.dapp.metablox:id/rtv_got_it")
+            Thread.sleep(3000)
             waitForNodeAndClick("Done", isId = false)
             Thread.sleep(1000)
             accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
-            Thread.sleep(20000)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            Thread.sleep(5000)
             // Xong hết thì chạy lại từ đầu bằng việc đổi wifi khác
         } else if (waitForNodeExist("Next Check-In:", isId = false)) {
             // Nếu có Cool down thì chạy lại từ đầu bằng việc đổi wifi khác
             Log.d("qqq", "runningTask: done")
             Thread.sleep(1000)
             accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            Thread.sleep(5000)
         }
     }
 
     @SuppressLint("MissingPermission")
-    fun autoRunCheckinWithWifiList() {
-        val wifiList = listOf(
-            WifiItem("Pham Ki", "mottoitam"),
-            WifiItem("Kho", "mottoitam")
-        )
-        val context = accessibilityService?.baseContext ?: return
-        WifiHelper.openApp(context, "com.dapp.metablox")
-
+    fun autoRunCheckinWithWifiList(
+        wifiList: List<WifiItem>,
+        packageName: String = "com.dapp.metablox"
+    ) {
         Thread {
+            val context = accessibilityService?.baseContext ?: return@Thread
             for (wifi in wifiList) {
                 context.handlerToast("Kết nối Wi-Fi: ${wifi.ssid}")
-                AppEvent.updateText("Kết nối Wi-Fi: ${wifi.ssid}")
-
                 WifiConnector.connectToSavedWifi(context, wifi.ssid)
-                Thread.sleep(5000)
+                Thread.sleep(1000)
                 Log.d("qqq", "🕐 kết nối xong...")
+                //mo app
+                WifiHelper.openApp(context, packageName)
+//                WifiHelper.openApp(context, "dkapp.vaq.jpn")
+                Thread.sleep(10000)
                 runningTask()
-                if (wifi != wifiList.last()) {
-                    context.handlerToast("✅ Xong với ${wifi.ssid}, tiếp tục wifi tiếp theo")
-                    AppEvent.updateText("Xong với ${wifi.ssid}, tiếp tục wifi tiếp theo")
-                }
+                context.handlerToast("Xong toàn bộ")
             }
-            AppEvent.updateText("Xong toàn bộ")
             context.handlerToast("Xong toàn bộ")
+        }.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun runAllPackage(
+        wifiList: List<WifiItem>,
+        packageList: List<String>
+    ) {
+        Thread {
+            val context = accessibilityService?.baseContext ?: return@Thread
+            for (pkgName in packageList) {
+                for (wifi in wifiList) {
+                    context.handlerToast("Kết nối Wi-Fi: ${wifi.ssid}")
+                    WifiConnector.connectToSavedWifi(context, wifi.ssid)
+                    Thread.sleep(3000)
+                    context.handlerToast("Kết nối Ok Wi-Fi: ${wifi.ssid}")
+                    WifiHelper.openApp(context, pkgName)
+                    Thread.sleep(10000)
+                    runningTask()
+                    context.handlerToast("Xong: ${wifi.ssid}")
+                    Thread.sleep(2000)
+                }
+                context.handlerToast("Xong: ${pkgName}")
+                //xong 1 app
+                Thread.sleep(3000)
+                accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+                accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+                accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+                Thread.sleep(2000)
+            }
+            context.handlerToast("Xong toàn bộ")
+            Thread.sleep(3000)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
+            accessibilityService?.performGlobalAction(GLOBAL_ACTION_BACK)
         }.start()
     }
 
     fun autoSSID(wifi: WifiItem) {
         val context = accessibilityService?.baseContext ?: return
-        WifiHelper.openApp(context, "com.dapp.metablox")
+        context.handlerToast("Kết nối Wi-Fi: ${wifi.ssid}")
+        WifiConnector.connectToSavedWifi(context, wifi.ssid)
+        //mo app
+//        WifiHelper.openApp(context, "com.dapp.metablox")
         Thread.sleep(10000)
         Thread {
-            context.handlerToast("Kết nối Wi-Fi: ${wifi.ssid}")
-            WifiConnector.connectToSavedWifi(context, wifi.ssid)
             Thread.sleep(5000)
             Log.d("qqq", "🕐 kết nối xong...")
             runningTask()
@@ -175,3 +220,5 @@ fun Context.handlerToast(message: String) {
 
 //            Thread.sleep(3000)
 //            waitForNodeAndClick("com.dapp.metablox:id/img_esim")
+
+

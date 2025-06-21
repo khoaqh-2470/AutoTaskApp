@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -49,6 +51,11 @@ class MainActivity : ComponentActivity() {
             WifiItem("Pham Ki", "mottoitam"),
             WifiItem("Kho", "mottoitam"),
             WifiItem("Nha Tuan", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
         )
     }
 
@@ -61,18 +68,31 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.CHANGE_WIFI_STATE,
                 Manifest.permission.ACCESS_WIFI_STATE
-            ),
-            100
+            ), 100
         )
         val autoAccessibilityService = AutoAccessibilityService()
         setContent {
             AutoTaskAppTheme {
+                val context = LocalContext.current
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
-                        MainContent {
-//                            autoAccessibilityService.testConnectWifi(it)
-                            autoAccessibilityService.autoSSID(it)
+                        var wifiList by remember { mutableStateOf(WifiStorage.getWifiList(context)) }
+                        var packageList by remember {
+                            mutableStateOf(
+                                WifiStorage.getPackageList(
+                                    context
+                                )
+                            )
                         }
+                        MainContent(onItemCLicked = {
+//                            autoAccessibilityService.testConnectWifi(it)
+//                            autoAccessibilityService.autoSSID(it)
+                            Toast.makeText(this@MainActivity, "no-ops", Toast.LENGTH_SHORT).show()
+                        }, onAllCLicked = {
+                            autoAccessibilityService.runAllPackage(wifiList, packageList)
+                        }, onItemPackage = {
+                            autoAccessibilityService.autoRunCheckinWithWifiList(wifiList, it)
+                        })
                     }
                 }
             }
@@ -83,7 +103,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Greeting(
     modifier: Modifier = Modifier,
-    onItemCLicked: (WifiItem) -> Unit = {}
+    onItemCLicked: (WifiItem) -> Unit = {},
+    onAllCLicked: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var ssid by remember { mutableStateOf("") }
@@ -103,7 +124,7 @@ fun Greeting(
             Spacer(Modifier.width(8.dp))
             Button({
 //            context.startService(Intent(context, FloatingBarService::class.java))
-                context.handlerToast("Chay toan bo")
+//                context.handlerToast("Chay toan bo")
             }) {
                 Text("Lưu")
             }
@@ -135,21 +156,34 @@ fun GreetingPreview() {
 }
 
 @Composable
-fun MainContent(onItemCLicked: (WifiItem) -> Unit = {}) {
+fun MainContent(
+    onItemCLicked: (WifiItem) -> Unit = {},
+    onItemPackage: (String) -> Unit = {},
+    onAllCLicked: (List<WifiItem>) -> Unit = {}
+) {
     val context = LocalContext.current
     var ssid by remember { mutableStateOf("") }
+    var packageName by remember { mutableStateOf("") }
 //    var wifiList by remember { mutableStateOf(wifiList) }
+//    var packageList by remember {
+//        mutableStateOf(
+//            listOf(
+//                "123123", "123123", "123123", "123123", "12312312", "123123"
+//            )
+//        )
+//    }
     var wifiList by remember { mutableStateOf(WifiStorage.getWifiList(context)) }
+    var packageList by remember { mutableStateOf(WifiStorage.getPackageList(context)) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
+            .verticalScroll(rememberScrollState())
     ) {
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
                 value = ssid,
@@ -170,27 +204,58 @@ fun MainContent(onItemCLicked: (WifiItem) -> Unit = {}) {
                     } else {
                         Toast.makeText(context, "Vui lòng nhập đầy đủ", Toast.LENGTH_SHORT).show()
                     }
-                },
-                modifier = Modifier
+                }, modifier = Modifier
             ) {
                 Text("Lưu")
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
 
+        Row(
+            modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = packageName,
+                onValueChange = { packageName = it },
+                label = { Text("dkapp.xxx.xxx") },
+                modifier = Modifier.fillMaxWidth(0.5f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (packageName.isNotBlank()) {
+                        val newList = packageList.toMutableList().apply { add(packageName) }
+                        WifiStorage.savPackageList(context, newList)
+                        packageList = newList
+                        packageName = ""
+                        Toast.makeText(context, "Đã lưu package", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Vui lòng nhập đầy đủ", Toast.LENGTH_SHORT).show()
+                    }
+                }, modifier = Modifier
+            ) {
+                Text("Lưu package")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
         Button(
             onClick = {
-                Toast.makeText(context, "Chưa update!!", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
+                onAllCLicked(wifiList)
+            }, modifier = Modifier
         ) {
             Text("Run All")
         }
+
         Spacer(modifier = Modifier.height(8.dp))
         Text("📡 Danh sách Wi-Fi đã lưu:", style = MaterialTheme.typography.titleMedium)
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(wifiList) { index, item ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+        ) {
+            wifiList.forEachIndexed { index, item ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -212,6 +277,83 @@ fun MainContent(onItemCLicked: (WifiItem) -> Unit = {}) {
                     }
                 }
             }
+        }
+//        LazyColumn(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
+//            itemsIndexed(wifiList) { index, item ->
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(4.dp)
+//                        .clickable {
+//                            onItemCLicked(item)
+//                        },
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Text("SSID: ${item.ssid}")
+//                    Button(onClick = {
+//                        val newList = wifiList.toMutableList().apply { removeAt(index) }
+//                        WifiStorage.saveWifiList(context, newList)
+//                        wifiList = newList
+//                        Toast.makeText(context, "Đã xoá Wi-Fi", Toast.LENGTH_SHORT).show()
+//                    }) {
+//                        Text("Xoá")
+//                    }
+//                }
+//            }
+//        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("📡 Danh sách Package đã lưu:", style = MaterialTheme.typography.titleMedium)
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+        ) {
+            packageList.forEachIndexed { index, item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp)
+                        .clickable {
+                            onItemPackage(item)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Package: ${item}")
+                    Button(onClick = {
+                        val newList = packageList.toMutableList().apply { removeAt(index) }
+                        WifiStorage.savPackageList(context, newList)
+                        packageList = newList
+                        Toast.makeText(context, "Đã xoá Package", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("Xoá")
+                    }
+                }
+            }
+//            itemsIndexed(packageList) { index, item ->
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(4.dp)
+//                        .clickable {
+//                            onItemPackage(item)
+//                        },
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Text("Package: ${item}")
+//                    Button(onClick = {
+//                        val newList = packageList.toMutableList().apply { removeAt(index) }
+//                        WifiStorage.savPackageList(context, newList)
+//                        packageList = newList
+//                        Toast.makeText(context, "Đã xoá Package", Toast.LENGTH_SHORT).show()
+//                    }) {
+//                        Text("Xoá")
+//                    }
+//                }
         }
     }
 }
