@@ -14,6 +14,11 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 object WifiConnector {
 
@@ -28,7 +33,8 @@ object WifiConnector {
      */
     fun connectToSavedWifi(context: Context, ssid: String) {
         // Kiểm tra xem Wi-Fi có đang bật không
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiManager =
+            context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         if (!wifiManager.isWifiEnabled) {
             Log.e(TAG, "Wi-Fi is disabled. Please enable it first.")
             // Tùy chọn: bạn có thể hiển thị Toast hoặc dialog thông báo cho người dùng
@@ -37,6 +43,7 @@ object WifiConnector {
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            Log.d(TAG, "connectLegacy: ")
             connectLegacy(context, ssid)
         } else {
             connectQAndAbove(context, ssid)
@@ -50,7 +57,8 @@ object WifiConnector {
     @SuppressLint("MissingPermission")
     @Suppress("DEPRECATION")
     private fun connectLegacy(context: Context, ssid: String) {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiManager =
+            context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val configuredNetworks = wifiManager.configuredNetworks
 
         if (configuredNetworks.isNullOrEmpty()) {
@@ -62,21 +70,24 @@ object WifiConnector {
         val targetSsid = "\"$ssid\""
 
         val targetNetwork = configuredNetworks.find { it.SSID == targetSsid }
+        CoroutineScope(Dispatchers.IO).launch {
+            if (targetNetwork != null) {
+                Log.d(TAG, "Found network: ${targetNetwork.SSID}, trying to connect...")
+                // Ngắt kết nối mạng hiện tại và kết nối đến mạng mới
+                val isDisconnected = wifiManager.disconnect()
+                delay(500)
+                if (isDisconnected.not()) return@launch
+                val success = wifiManager.enableNetwork(targetNetwork.networkId, true)
+                wifiManager.reconnect()
 
-        if (targetNetwork != null) {
-            Log.d(TAG, "Found network: ${targetNetwork.SSID}, trying to connect...")
-            // Ngắt kết nối mạng hiện tại và kết nối đến mạng mới
-            wifiManager.disconnect()
-            val success = wifiManager.enableNetwork(targetNetwork.networkId, true)
-            wifiManager.reconnect()
-
-            if (success) {
-                Log.d(TAG, "Successfully requested connection to $ssid")
+                if (success) {
+                    Log.d(TAG, "Successfully requested connection to $ssid")
+                } else {
+                    Log.e(TAG, "Failed to request connection to $ssid")
+                }
             } else {
-                Log.e(TAG, "Failed to request connection to $ssid")
+                Log.e(TAG, "Wi-Fi network '$ssid' is not saved on this device.")
             }
-        } else {
-            Log.e(TAG, "Wi-Fi network '$ssid' is not saved on this device.")
         }
     }
 
@@ -86,7 +97,8 @@ object WifiConnector {
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun connectQAndAbove(context: Context, ssid: String) {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         val specifier = WifiNetworkSpecifier.Builder()
             .setSsid(ssid)
@@ -114,7 +126,10 @@ object WifiConnector {
 
             override fun onUnavailable() {
                 super.onUnavailable()
-                Log.e(TAG, "Could not connect to $ssid. The network may be out of range or the user cancelled.")
+                Log.e(
+                    TAG,
+                    "Could not connect to $ssid. The network may be out of range or the user cancelled."
+                )
                 // Bạn cũng nên hủy đăng ký callback ở đây
                 try {
                     connectivityManager.unregisterNetworkCallback(this)

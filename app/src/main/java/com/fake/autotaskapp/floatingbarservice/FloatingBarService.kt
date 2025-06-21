@@ -4,41 +4,37 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
 import android.view.WindowManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.fake.autotaskapp.AppEvent
 import com.fake.autotaskapp.AutoAccessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +58,6 @@ class FloatingBarService : Service() {
         showOverlay(
             onActionClick = {
                 scope.launch {
-//                    autoService.runningTask()
                     autoService.autoRunCheckinWithWifiList()
                 }
             },
@@ -114,6 +109,7 @@ class FloatingBarService : Service() {
 
 @Composable
 fun FloatingBarContent(onActionClick: () -> Unit = {}, onCloseClick: () -> Unit = {}) {
+    val textState by AppEvent.textState.collectAsStateWithLifecycle()
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color(0xFF333333),
@@ -122,6 +118,10 @@ fun FloatingBarContent(onActionClick: () -> Unit = {}, onCloseClick: () -> Unit 
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
+            Text(text = textState)
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(thickness = 1.dp, modifier = Modifier.width(24.dp))
+            Spacer(Modifier.height(12.dp))
             Icon(
                 Icons.Default.PlayArrow,
                 contentDescription = null,

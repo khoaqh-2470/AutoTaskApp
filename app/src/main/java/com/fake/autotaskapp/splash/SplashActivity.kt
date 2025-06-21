@@ -1,15 +1,17 @@
 package com.fake.autotaskapp.splash
 
+import android.accessibilityservice.AccessibilityService
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.text.TextUtils
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.core.net.toUri
 import com.fake.autotaskapp.AutoAccessibilityService
 import com.fake.autotaskapp.MainActivity
-import com.fake.autotaskapp.R
-import com.fake.autotaskapp.isAccessibilityServiceEnabled
 
 class SplashActivity : ComponentActivity() {
 
@@ -37,7 +39,7 @@ class SplashActivity : ComponentActivity() {
 
     private fun checkAccessibilitySettings() {
         if (isAccessibilityEnable()) {
-            startActivity(Intent(this, MainActivity::class.java))
+            goToMain()
         } else {
             openAccessibilitySettings()
         }
@@ -76,8 +78,32 @@ class SplashActivity : ComponentActivity() {
                         .show()
                     return
                 }
-                startActivity(Intent(this, MainActivity::class.java))
+                goToMain()
             }
         }
+    }
+
+    private fun goToMain() {
+        finish()
+        startActivity(Intent(this, MainActivity::class.java))
+    }
+
+    private fun isAccessibilityServiceEnabled(
+        context: Context,
+        serviceClass: Class<out AccessibilityService>
+    ): Boolean {
+        val expectedComponentName = ComponentName(context, serviceClass)
+        val enabledServicesSetting = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServicesSetting ?: return false)
+        for (component in colonSplitter) {
+            if (ComponentName.unflattenFromString(component) == expectedComponentName) {
+                return true
+            }
+        }
+        return false
     }
 }

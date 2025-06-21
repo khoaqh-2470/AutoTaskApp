@@ -58,5 +58,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.1")
     implementation(libs.androidx.lifecycle.service)
+    implementation("com.google.code.gson:gson:2.10.1")
+
 
 }

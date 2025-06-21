@@ -1,55 +1,54 @@
 package com.fake.autotaskapp
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityService
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.net.wifi.WifiConfiguration
-import android.net.wifi.WifiManager
-import android.net.wifi.WifiNetworkSpecifier
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
-import android.text.TextUtils
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.fake.autotaskapp.MainActivity.Companion.wifiList
-import com.fake.autotaskapp.floatingbarservice.FloatingBarService
+import com.fake.autotaskapp.data.WifiItem
+import com.fake.autotaskapp.data.WifiStorage
 import com.fake.autotaskapp.ui.theme.AutoTaskAppTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     companion object {
-        val wifiList = listOf(
-            "Pham Ki" to "mottoitam",
-            "Kho" to "mottoitam"
+        var wifiList = listOf(
+            WifiItem("Pham Ki", "mottoitam"),
+            WifiItem("Kho", "mottoitam"),
+            WifiItem("Nha Tuan", "mottoitam"),
         )
     }
 
@@ -65,170 +64,154 @@ class MainActivity : ComponentActivity() {
             ),
             100
         )
-
-//        if (!isAccessibilityServiceEnabled(this, AutoAccessibilityService::class.java)) {
-//            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-//            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-//            startActivity(intent)
-//            Toast.makeText(this, "Vui lòng bật Trợ năng cho ứng dụng", Toast.LENGTH_LONG).show()
-//        }
-
+        val autoAccessibilityService = AutoAccessibilityService()
         setContent {
             AutoTaskAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        modifier = Modifier
-                            .padding(innerPadding),
-                        onItemCLicked = {
-                            AutoAccessibilityService.currentSsid = it.first
-                            startAutoTask(this, it)
+                    Box(modifier = Modifier.padding(innerPadding)) {
+                        MainContent {
+//                            autoAccessibilityService.testConnectWifi(it)
+                            autoAccessibilityService.autoSSID(it)
                         }
-                    )
+                    }
                 }
             }
         }
     }
 }
 
-fun startAutoTask(context: Context, pair: Pair<String, String>) {
-    // Bắt đầu quy trình
-    CoroutineScope(Dispatchers.Main).launch {
-        Log.d("AutoService", "connect wifi: ${Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q}")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            connectWifiApi29(context, pair)
-        } else {
-            connectWifi(context, pair)
-        }
-        delay(5000)
-        Log.d("AutoService", "startAutoTask: mo app")
-        WifiHelper.openApp(context, "com.dapp.metablox")
-    }
-}
-
-fun isAccessibilityServiceEnabled(
-    context: Context,
-    serviceClass: Class<out AccessibilityService>
-): Boolean {
-    val expectedComponentName = ComponentName(context, serviceClass)
-    val enabledServicesSetting = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    )
-    val colonSplitter = TextUtils.SimpleStringSplitter(':')
-    colonSplitter.setString(enabledServicesSetting ?: return false)
-    for (component in colonSplitter) {
-        if (ComponentName.unflattenFromString(component) == expectedComponentName) {
-            return true
-        }
-    }
-    return false
-}
-
-@RequiresApi(Build.VERSION_CODES.Q)
-fun connectWifiApi29(context: Context, wifi: Pair<String, String>) {
-    val wifiNetworkSpecifier = WifiNetworkSpecifier.Builder()
-        .setSsid(wifi.first) // hoặc .setSsidPattern(...)
-        .setWpa2Passphrase(wifi.second)
-        .build()
-
-    val networkRequest = NetworkRequest.Builder()
-        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-        .setNetworkSpecifier(wifiNetworkSpecifier)
-        .build()
-
-    val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            super.onAvailable(network)
-            connectivityManager.bindProcessToNetwork(network) // Tùy chọn: gắn kết quá trình với mạng đó
-        }
-
-        override fun onUnavailable() {
-            super.onUnavailable()
-            context.handlerToast("Không thể kết nối wifi")
-        }
-    }
-    connectivityManager.requestNetwork(networkRequest, networkCallback)
-}
-
-fun connectWifi(context: Context, pair: Pair<String, String>) {
-    val wifiManager =
-        context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-    val wifiConfig = WifiConfiguration().apply {
-        SSID = pair.first
-        preSharedKey = pair.second
-    }
-
-    val networkId = wifiManager.addNetwork(wifiConfig)
-    wifiManager.disconnect()
-    wifiManager.enableNetwork(networkId, true)
-    wifiManager.reconnect()
-}
-
 @Composable
 fun Greeting(
     modifier: Modifier = Modifier,
-    onItemCLicked: (Pair<String, String>) -> Unit = {}
+    onItemCLicked: (WifiItem) -> Unit = {}
 ) {
     val context = LocalContext.current
+    var ssid by remember { mutableStateOf("") }
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = ssid,
+                onValueChange = { ssid = it },
+                label = { Text("Wi-Fi SSID") },
+                modifier = Modifier.wrapContentSize()
+            )
+            Spacer(Modifier.width(8.dp))
+            Button({
+//            context.startService(Intent(context, FloatingBarService::class.java))
+                context.handlerToast("Chay toan bo")
+            }) {
+                Text("Lưu")
+            }
+        }
         Button({
-//            onRunning()
-//            WifiHelper.openApp(context, "com.dapp.metablox")
-            context.startService(Intent(context, FloatingBarService::class.java))
-
+//            context.startService(Intent(context, FloatingBarService::class.java))
+            context.handlerToast("Chay toan bo")
         }) {
             Text("Chay toan bo")
         }
-
-        wifiList.forEachIndexed { index, pair ->
+        wifiList.forEachIndexed { index, item ->
             Text(
                 modifier = Modifier
-                    .clickable { onItemCLicked(pair) }
+                    .clickable { onItemCLicked(item) }
                     .padding(20.dp),
-                text = "$index: SSID:${pair.first} - Password:****"//${pair.second}
+                text = "$index: SSID:${item.ssid} - Password:****"//${pair.second}
             )
         }
     }
-}
-
-fun onRunning() {
-//    CoroutineScope(Dispatchers.IO).launch {
-//        var isRun = true
-//        while (isRun) {
-//            access?.rootInActiveWindow?.let { accessiblityRoot ->
-////                val btnCheckIn = accessiblityRoot.findAccessibilityNodeInfosByText("Check-In")
-//                val btnCheckIn =
-//                    accessiblityRoot.findAccessibilityNodeInfosByViewId("com.dapp.metablox:id/rtv_event")
-//                if (btnCheckIn.isNotEmpty()) {
-//                    btnCheckIn.firstOrNull()?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-//                    isRun = false
-//                    Log.d("qqq", "click ok")
-//                    val rect = Rect()
-//                    btnCheckIn.firstOrNull()?.getBoundsInScreen(rect)
-//                    val x = rect.centerX()
-//                    val y = rect.centerY()
-//                } else {
-//                    Log.d("qqq", "dang tim nut check in")
-//                    delay(2000)
-//                }
-//            }
-//        }
-//    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     AutoTaskAppTheme {
-        Greeting()
+//        Greeting()
+        MainContent()
+    }
+}
+
+@Composable
+fun MainContent(onItemCLicked: (WifiItem) -> Unit = {}) {
+    val context = LocalContext.current
+    var ssid by remember { mutableStateOf("") }
+//    var wifiList by remember { mutableStateOf(wifiList) }
+    var wifiList by remember { mutableStateOf(WifiStorage.getWifiList(context)) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = ssid,
+                onValueChange = { ssid = it },
+                label = { Text("Wi-Fi SSID") },
+                modifier = Modifier.fillMaxWidth(0.5f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (ssid.isNotBlank()) {
+                        val newItem = WifiItem(ssid)
+                        val newList = wifiList.toMutableList().apply { add(newItem) }
+                        WifiStorage.saveWifiList(context, newList)
+                        wifiList = newList
+                        ssid = ""
+                        Toast.makeText(context, "Đã lưu Wi-Fi", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Vui lòng nhập đầy đủ", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier
+            ) {
+                Text("Lưu")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                Toast.makeText(context, "Chưa update!!", Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier
+        ) {
+            Text("Run All")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("📡 Danh sách Wi-Fi đã lưu:", style = MaterialTheme.typography.titleMedium)
+
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            itemsIndexed(wifiList) { index, item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp)
+                        .clickable {
+                            onItemCLicked(item)
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("SSID: ${item.ssid}")
+                    Button(onClick = {
+                        val newList = wifiList.toMutableList().apply { removeAt(index) }
+                        WifiStorage.saveWifiList(context, newList)
+                        wifiList = newList
+                        Toast.makeText(context, "Đã xoá Wi-Fi", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("Xoá")
+                    }
+                }
+            }
+        }
     }
 }
